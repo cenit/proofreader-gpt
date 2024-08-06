@@ -1,8 +1,19 @@
 import sys
-from openai import OpenAI
-import sys
+import os
 
-client = OpenAI()
+use_azure = False
+
+if use_azure:
+    from openai import AzureOpenAI
+
+    client = AzureOpenAI(
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        api_version="2024-02-01"
+    )
+else:
+    from openai import OpenAI
+    client = OpenAI()
 
 def split_text_into_chunks(text, max_chunk_size):
     """Splits the input text into chunks of a specified maximum size."""

@@ -1,12 +1,24 @@
 import fitz
-from openai import OpenAI
 from PIL import Image
 import os
 import io
 import sys
 from base64 import b64encode
 
-client = OpenAI()
+use_azure = False
+
+if use_azure:
+    from openai import AzureOpenAI
+
+    client = AzureOpenAI(
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        api_version="2024-02-01"
+    )
+else:
+    from openai import OpenAI
+    client = OpenAI()
+
 MAX_TOKENS = 4096
 
 def extract_text_and_images(pdf_path):
