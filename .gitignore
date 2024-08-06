@@ -7,3 +7,5 @@ images/
 *.pdb
 *.pb
 *.traineddata
+tesseract
+*.md

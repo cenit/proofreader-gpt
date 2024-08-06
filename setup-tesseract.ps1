@@ -141,20 +141,46 @@ else {
   if (-Not $DoNotUpdateTOOL) {
     git pull
   }
-  .\bootstrap-vcpkg.bat -disableMetrics
-  .\vcpkg install tesseract --triplet=x64-windows-release --host-triplet=x64-windows-release --clean-buildtrees-after-build --clean-packages-after-build --recurse
-  Copy-Item installed/x64-windows-release/tools/tesseract/*.* $PSCustomScriptRoot/src
+  if ($IsWindowsPowerShell -or $IsWindows) {
+    .\bootstrap-vcpkg.bat -disableMetrics
+    $triplet = "x64-windows-release"
+  }
+  else {
+    ./bootstrap-vcpkg.sh -disableMetrics
+    if ($IsLinux) {
+      $triplet = "x64-linux-release"
+    } elseif ($IsMacOS) {
+      $triplet = "x64-osx-release"
+    }
+  }
+  ./vcpkg install tesseract --triplet=$triplet --host-triplet=$triplet --clean-buildtrees-after-build --clean-packages-after-build --recurse
+  if ($IsWindowsPowerShell -or $IsWindows) {
+    Copy-Item installed/$triplet/tools/tesseract/*.* $PSCustomScriptRoot/src
+  }
+  else {
+    Copy-Item installed/$triplet/tools/tesseract/* $PSCustomScriptRoot/src
+  }
   Pop-Location
 }
 
+if ($IsWindowsPowerShell -or $IsWindows) {
+  $CURL = "curl.exe"
+}
+else {
+  $CURL = "curl"
+}
 if (-Not (Test-Path "$env:TESSDATA_PREFIX/eng.traineddata")) {
-  curl.exe -o src/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/eng.traineddata
+  & $CURL -o src/eng.traineddata https://raw.githubusercontent.com/tesseract-ocr/tessdata/main/eng.traineddata
 }
 if (-Not (Test-Path "$env:TESSDATA_PREFIX/frozen_east_text_detection.pb")) {
-  curl.exe -o src/frozen_east_text_detection.pb https://raw.githubusercontent.com/oyyd/frozen_east_text_detection.pb/master/frozen_east_text_detection.pb
+  & $CURL -o src/frozen_east_text_detection.pb https://raw.githubusercontent.com/oyyd/frozen_east_text_detection.pb/master/frozen_east_text_detection.pb
 }
 
-$env:PATH = "$env:TESSDATA_PREFIX;$env:PATH"
+if ($IsWindowsPowerShell -or $IsWindows) {
+  $env:PATH = "$env:TESSDATA_PREFIX;$env:PATH"
+} else {
+  $env:PATH = "${env:TESSDATA_PREFIX}:${env:PATH}"
+}
 
 $TESSERACT_EXE = Get-Command "tesseract" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Definition
 if (-Not $TESSERACT_EXE) {
