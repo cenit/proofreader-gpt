@@ -1,0 +1,9 @@
+.venv
+setup-venv.log
+setup-tesseract.log
+images/
+*.exe
+*.dll
+*.pdb
+*.pb
+*.traineddata
