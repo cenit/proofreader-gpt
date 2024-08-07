@@ -111,7 +111,7 @@ def convert_image_to_markdown(image_data):
 
 
 def generate_markdown_file(markdown_text, output_md_path):
-    with open(output_md_path, 'w') as md_file:
+    with open(output_md_path, 'w', encoding='utf-8') as md_file:
         md_file.write(markdown_text)
 
 

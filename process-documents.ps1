@@ -180,6 +180,10 @@ foreach ($PDFFile in $PDFFiles) {
   Write-Host "Processing document: $PDFFileCopy" -ForegroundColor Yellow
   Write-Host "Output file: $MDFileBaseName" -ForegroundColor Cyan
   Write-Host "Images folder: $ImagesFolder" -ForegroundColor Cyan
+  if (Test-Path $MDFile) {
+    Write-Host "Output file already exists, skipping document"
+    continue
+  }
   $python_args = " $PSCustomScriptRoot\src\ai_converter.py --pdf `"$PDFFileCopy`" --md `"$MDFile`" --images `"$ImagesFolder`" $skip_images"
   $proc = Start-Process -NoNewWindow -PassThru -FilePath $PYTHON_EXE -ArgumentList $python_args
   $handle = $proc.Handle
