@@ -1,6 +1,7 @@
 .venv
 setup-venv.log
 setup-tesseract.log
+process-documents.log
 images/
 *.exe
 *.dll
@@ -10,3 +11,4 @@ images/
 tesseract
 *.md
 strings_to_skip.json
+output/

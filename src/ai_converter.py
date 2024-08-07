@@ -2,8 +2,9 @@ import fitz
 from PIL import Image
 import os
 import io
-import sys
 from base64 import b64encode
+from termcolor import colored
+import argparse
 
 use_azure = True
 
@@ -114,12 +115,11 @@ def generate_markdown_file(markdown_text, output_md_path):
         md_file.write(markdown_text)
 
 
-def pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_remove=None):
+def pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_remove=None, skip_images=False):
     text, images = extract_text_and_images(pdf_path)
     image_paths = save_images(images, images_dir)
 
     text_chunks = split_text(text)
-
     markdown_texts = []
     for i in range(len(text_chunks)):
         markdown_text = convert_text_to_markdown(text_chunks[i], strings_to_remove)
@@ -129,24 +129,34 @@ def pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_remove=None
         raise ValueError("Number of images extracted does not match number of image paths saved")
     markdown_texts.append(f"\n\n## Images\n\n")
     for idx, image_path in enumerate(image_paths):
-        markdown_text = convert_image_to_markdown(images[idx][0])
-        markdown_texts.append(f"![Image {idx}](./{os.path.basename(image_path)})\n" + markdown_text)
+        if skip_images:
+            markdown_text = ""
+        else:
+            markdown_text = convert_image_to_markdown(images[idx][0])
+        markdown_texts.append(f"![Image {idx}](./images/{os.path.basename(image_path)})\n" + markdown_text)
 
     combined_markdown_text = "\n\n".join(markdown_texts)
     generate_markdown_file(combined_markdown_text, output_md_path)
 
 
 if __name__ == "__main__":
-    if os.path.exists("strings_to_skip.json"):
+    parser = argparse.ArgumentParser(description='Convert a PDF document into Markdown using OpenAI')
+    parser.add_argument('--debug', dest='debug', default=False, action='store_true', help='Enable verbose output', required=False)
+    parser.add_argument('--skip-images', dest='skip_images', default=False, action='store_true', help='Skip image processing for text extraction', required=False)
+    parser.add_argument('--json', dest='jsonFile', help='Define the json config file', required=False, default='strings_to_skip.json')
+    parser.add_argument('--pdf', dest='pdfFile', help='Define the input PDF file', required=True)
+    parser.add_argument('--md', dest='mdFile', help='Define the output MD file', required=True)
+    parser.add_argument('--images', dest='imgFolder', help='Define the output images folder', required=True)
+    args = parser.parse_args()
+
+    if os.path.exists(args.jsonFile):
         import json
-        with open("strings_to_skip.json", "r") as f:
+        with open(args.jsonFile, "r") as f:
             strings_to_skip = json.load(f)
             strings_to_skip = strings_to_skip["strings_to_skip"]
     else:
         strings_to_skip = None
-    pdf_path = sys.argv[1]
-    output_md_path = sys.argv[2]
-    images_dir = 'images'
-    os.makedirs(images_dir, exist_ok=True)
-    pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_skip)
-    print(f"Markdown document created at: {output_md_path}")
+
+    os.makedirs(args.imgFolder, exist_ok=True)
+    pdf_to_markdown(args.pdfFile, args.mdFile, args.imgFolder, strings_to_skip, args.skip_images)
+    print(colored(f"Markdown document created at: {args.mdFile}", "green"))
