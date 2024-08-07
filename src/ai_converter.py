@@ -106,8 +106,22 @@ def convert_image_to_markdown(image_data):
     image_b64 = b64encode(image_data).decode('utf-8')
 
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You are converting a PDF to markdown, inspecting also images for text. You are now given an image, if it is a text image, you should convert it to markdown, otherwise, you should ignore it."},
-        {"role": "user", "content": f"data:image/jpeg;base64,{image_b64}"}
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You are converting a PDF to markdown, inspecting also images for text. You are now given an image, if it is a text image, you should convert it to markdown, otherwise, you should ignore it."
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_b64}",
+                        "detail": "high"
+                    }
+                }
+            ]
+        }
     ]
 
     response = client.chat.completions.create(
