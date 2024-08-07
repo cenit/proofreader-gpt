@@ -22,6 +22,7 @@ else:
 
 MAX_TOKENS = 1024
 
+
 def extract_text_and_images(pdf_path):
     pdf_document = fitz.open(pdf_path)
     text = ""
@@ -77,14 +78,13 @@ def split_text(text, max_tokens=MAX_TOKENS):
     return text_chunks
 
 
-def convert_text_to_markdown(text):
+def convert_text_to_markdown(text, strings_to_remove=None):
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You convert from PDF to markdown. You are now given a text, you should convert it to markdown putting also formatting."},
-        {"role": "user", "content": {"type": "text", "text": f"Convert the following text to Markdown format:\n\n{text}"}}
+        {"role": "system",
+            "content": f"You are a helpful assistant that corrects typos, errors, and formatting in documents. You convert from PDF to markdown. You are now given a text bulk-extracted from a document; it might have lost formatting and might also have missing chars, unreadable ones, typographical errors or even syntax and grammatical ones that must be removed. You should write your output using Markdown syntax, with nice formatting. If you find any boilerplate or anything similar to the following list of strings, maybe also written in other languages even different from the rest of the document, you should just remove them from your output. Also any printing date, version, or similar information should be removed: {strings_to_remove}. Similarly, any personal name, email address or telephone number should be removed and any section that can be described as an address book should just be skipped."},
+        {"role": "user", "content": f"Convert the following text to Markdown format:\n\n{text}"}
     ]
 
-    print(f"messages: {messages}")
-    print(f"messages[1]: {messages[1]}")
     response = client.chat.completions.create(
         model=openai_model,
         messages=messages,
@@ -93,15 +93,14 @@ def convert_text_to_markdown(text):
     return response.choices[0].message.content
 
 
-def convert_image_to_markdown(images):
-    image_data = b64encode(images).decode('utf-8')
+def convert_image_to_markdown(image_data):
+    image_b64 = b64encode(image_data).decode('utf-8')
 
     messages = [
         {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You are converting a PDF to markdown, inspecting also images for text. You are now given an image, if it is a text image, you should convert it to markdown, otherwise, you should ignore it."},
-        {"role": "user", "content": {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}}
+        {"role": "user", "content": f"data:image/jpeg;base64,{image_b64}"}
     ]
 
-    print(messages)
     response = client.chat.completions.create(
         model=openai_model,
         messages=messages,
@@ -110,16 +109,12 @@ def convert_image_to_markdown(images):
     return response.choices[0].message.content
 
 
-def generate_markdown_file(markdown_text, image_paths, output_md_path):
+def generate_markdown_file(markdown_text, output_md_path):
     with open(output_md_path, 'w') as md_file:
         md_file.write(markdown_text)
-        md_file.write("\n\n")
-        for idx, image_path in enumerate(image_paths):
-            md_file.write(
-                f"![Image {idx}](./{os.path.basename(image_path)})\n")
 
 
-def pdf_to_markdown(pdf_path, output_md_path, images_dir):
+def pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_remove=None):
     text, images = extract_text_and_images(pdf_path)
     image_paths = save_images(images, images_dir)
 
@@ -127,24 +122,31 @@ def pdf_to_markdown(pdf_path, output_md_path, images_dir):
 
     markdown_texts = []
     for i in range(len(text_chunks)):
-        markdown_text = convert_text_to_markdown(text_chunks[i])
+        markdown_text = convert_text_to_markdown(text_chunks[i], strings_to_remove)
         markdown_texts.append(markdown_text)
 
     if len(images) != len(image_paths):
         raise ValueError("Number of images extracted does not match number of image paths saved")
     markdown_texts.append(f"\n\n## Images\n\n")
     for idx, image_path in enumerate(image_paths):
-        markdown_text = convert_image_to_markdown(images[idx])
+        markdown_text = convert_image_to_markdown(images[idx][0])
         markdown_texts.append(f"![Image {idx}](./{os.path.basename(image_path)})\n" + markdown_text)
 
     combined_markdown_text = "\n\n".join(markdown_texts)
-    generate_markdown_file(combined_markdown_text, image_paths, output_md_path)
+    generate_markdown_file(combined_markdown_text, output_md_path)
 
 
 if __name__ == "__main__":
+    if os.path.exists("strings_to_skip.json"):
+        import json
+        with open("strings_to_skip.json", "r") as f:
+            strings_to_skip = json.load(f)
+            strings_to_skip = strings_to_skip["strings_to_skip"]
+    else:
+        strings_to_skip = None
     pdf_path = sys.argv[1]
-    output_md_path = 'output_document.md'
+    output_md_path = sys.argv[2]
     images_dir = 'images'
     os.makedirs(images_dir, exist_ok=True)
-    pdf_to_markdown(pdf_path, output_md_path, images_dir)
+    pdf_to_markdown(pdf_path, output_md_path, images_dir, strings_to_skip)
     print(f"Markdown document created at: {output_md_path}")

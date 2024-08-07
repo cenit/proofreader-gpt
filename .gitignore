@@ -9,3 +9,4 @@ images/
 *.traineddata
 tesseract
 *.md
+strings_to_skip.json
