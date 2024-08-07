@@ -188,7 +188,6 @@ foreach ($PDFFile in $PDFFiles) {
   if (-Not ($exitCode -eq 0)) {
     MyThrow("Unable to process document! Exited with error code $exitCode.")
   }
-  exit
 }
 
 $ErrorActionPreference = "SilentlyContinue"

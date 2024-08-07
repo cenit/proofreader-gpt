@@ -21,7 +21,7 @@ else:
     openai_model = "gpt-4o"
     client = OpenAI()
 
-MAX_TOKENS = 1024
+MAX_TOKENS = 4096
 
 
 def extract_text_and_images(pdf_path):
