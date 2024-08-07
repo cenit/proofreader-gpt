@@ -1,11 +1,11 @@
 import sys
 import os
 
-use_azure = False
+use_azure = True
 
 if use_azure:
     from openai import AzureOpenAI
-
+    openai_model = os.getenv("AZURE_OPENAI_DEPLOYMENT_MODEL")
     client = AzureOpenAI(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -13,6 +13,7 @@ if use_azure:
     )
 else:
     from openai import OpenAI
+    openai_model = "gpt-4o"
     client = OpenAI()
 
 def split_text_into_chunks(text, max_chunk_size):
@@ -32,7 +33,7 @@ def split_text_into_chunks(text, max_chunk_size):
 def process_chunk(chunk):
     """Sends a text chunk to the OpenAI API and returns the corrected text."""
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=openai_model,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in markdown documents."},
             {"role": "user", "content": chunk}

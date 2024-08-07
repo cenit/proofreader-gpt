@@ -5,11 +5,11 @@ import io
 import sys
 from base64 import b64encode
 
-use_azure = False
+use_azure = True
 
 if use_azure:
     from openai import AzureOpenAI
-
+    openai_model = os.getenv("AZURE_OPENAI_DEPLOYMENT_MODEL")
     client = AzureOpenAI(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -17,9 +17,10 @@ if use_azure:
     )
 else:
     from openai import OpenAI
+    openai_model = "gpt-4o"
     client = OpenAI()
 
-MAX_TOKENS = 4096
+MAX_TOKENS = 1024
 
 def extract_text_and_images(pdf_path):
     pdf_document = fitz.open(pdf_path)
@@ -54,48 +55,55 @@ def tokenize_text(text):
     return text.split()
 
 
-def split_text_and_images(text, images, max_tokens=MAX_TOKENS):
+def split_text(text, max_tokens=MAX_TOKENS):
     words = tokenize_text(text)
     text_chunks = []
-    images_chunks = []
-
     current_chunk = ""
-    current_images = []
     current_tokens = 0
 
     for word in words:
         word_tokens = len(word.split())  # Approximate token count
         if current_tokens + word_tokens > max_tokens:
             text_chunks.append(current_chunk.strip())
-            images_chunks.append(current_images)
             current_chunk = word + " "
             current_tokens = word_tokens
-            current_images = []
         else:
             current_chunk += word + " "
             current_tokens += word_tokens
 
     if current_chunk:
         text_chunks.append(current_chunk.strip())
-        images_chunks.append(current_images)
 
-    images_per_chunk = len(images) // len(text_chunks) + 1
-    for i in range(len(text_chunks)):
-        images_chunks[i] = images[i*images_per_chunk: (i+1)*images_per_chunk]
-
-    return text_chunks, images_chunks
+    return text_chunks
 
 
-def convert_text_and_images_to_markdown(text, images):
-    image_data = [b64encode(img).decode('utf-8') for img, _, _ in images]
-
+def convert_text_to_markdown(text):
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You convert from PDF to markdown, inspecting also images for text"},
-        {"role": "user", "content": [{"type": "text", "text": f"Convert the following text and images to Markdown format:\n\n{text}"}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}]}
+        {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You convert from PDF to markdown. You are now given a text, you should convert it to markdown putting also formatting."},
+        {"role": "user", "content": {"type": "text", "text": f"Convert the following text to Markdown format:\n\n{text}"}}
     ]
 
+    print(f"messages: {messages}")
+    print(f"messages[1]: {messages[1]}")
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=openai_model,
+        messages=messages,
+        max_tokens=MAX_TOKENS
+    )
+    return response.choices[0].message.content
+
+
+def convert_image_to_markdown(images):
+    image_data = b64encode(images).decode('utf-8')
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant that corrects typos, errors, and formatting in documents. You are converting a PDF to markdown, inspecting also images for text. You are now given an image, if it is a text image, you should convert it to markdown, otherwise, you should ignore it."},
+        {"role": "user", "content": {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}}}
+    ]
+
+    print(messages)
+    response = client.chat.completions.create(
+        model=openai_model,
         messages=messages,
         max_tokens=MAX_TOKENS
     )
@@ -115,13 +123,19 @@ def pdf_to_markdown(pdf_path, output_md_path, images_dir):
     text, images = extract_text_and_images(pdf_path)
     image_paths = save_images(images, images_dir)
 
-    text_chunks, images_chunks = split_text_and_images(text, images)
+    text_chunks = split_text(text)
 
     markdown_texts = []
     for i in range(len(text_chunks)):
-        markdown_text = convert_text_and_images_to_markdown(
-            text_chunks[i], images_chunks[i])
+        markdown_text = convert_text_to_markdown(text_chunks[i])
         markdown_texts.append(markdown_text)
+
+    if len(images) != len(image_paths):
+        raise ValueError("Number of images extracted does not match number of image paths saved")
+    markdown_texts.append(f"\n\n## Images\n\n")
+    for idx, image_path in enumerate(image_paths):
+        markdown_text = convert_image_to_markdown(images[idx])
+        markdown_texts.append(f"![Image {idx}](./{os.path.basename(image_path)})\n" + markdown_text)
 
     combined_markdown_text = "\n\n".join(markdown_texts)
     generate_markdown_file(combined_markdown_text, image_paths, output_md_path)

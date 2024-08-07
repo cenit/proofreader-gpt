@@ -129,7 +129,12 @@ else {
 }
 
 if (-Not $env:TESSDATA_PREFIX) {
-  $env:TESSDATA_PREFIX = "$PSCustomScriptRoot/src"
+  if ($IsWindowsPowerShell -or $IsWindows) {
+    $env:TESSDATA_PREFIX = "$PSCustomScriptRoot\src"
+  }
+  else {
+    $env:TESSDATA_PREFIX = "$PSCustomScriptRoot/src"
+  }
 }
 
 if (-Not $VCPKG_ROOT) {
