@@ -1,3 +1,4 @@
+from PIL import Image, UnidentifiedImageError
 import fitz
 from PIL import Image
 import os
@@ -48,8 +49,15 @@ def save_images(images, output_dir):
         image = Image.open(io.BytesIO(img_data))
         image_path = os.path.join(
             output_dir, f'image_{page_number}_{img_index}.png')
-        image.save(image_path)
-        image_paths.append(image_path)
+        try:
+            if image.mode == 'CMYK':
+                image = image.convert('RGB')
+            image.save(image_path)
+            image_paths.append(image_path)
+        except (OSError, UnidentifiedImageError) as e:
+            print(f"Error saving image {page_number}_{img_index}: {e}")
+            image_paths.append("broken_image")
+            continue
     return image_paths
 
 

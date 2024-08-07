@@ -184,7 +184,7 @@ foreach ($PDFFile in $PDFFiles) {
     Write-Host "Output file already exists, skipping document"
     continue
   }
-  $python_args = " $PSCustomScriptRoot\src\ai_converter.py --pdf `"$PDFFileCopy`" --md `"$MDFile`" --images `"$ImagesFolder`" $skip_images"
+  $python_args = " $PSCustomScriptRoot/src/ai_converter.py --pdf `"$PDFFileCopy`" --md `"$MDFile`" --images `"$ImagesFolder`" $skip_images"
   $proc = Start-Process -NoNewWindow -PassThru -FilePath $PYTHON_EXE -ArgumentList $python_args
   $handle = $proc.Handle
   $proc.WaitForExit()
